@@ -321,7 +321,7 @@ async def do_timeout(ctx, member: discord.Member, duration: str, reason: str = "
         await notify_owners(bot, log_msg)
 
     except discord.Forbidden:
-        await ctx.send("❌ ما عندي صلاحية أسكت هذا العضو!")
+        await ctx.send("❌ ما عندي صلاحية أسكت هذا العضو! (تأكد أن رتبة البوت أعلى من العضو)")
     except Exception as e:
         await ctx.send(f"❌ خطأ: {e}")
 
@@ -371,7 +371,7 @@ async def do_temp_ban(ctx, member: discord.Member, duration: str = None, reason:
                 pass
 
     except discord.Forbidden:
-        await ctx.send("❌ ما عندي صلاحية أباند هذا العضو!")
+        await ctx.send("❌ ما عندي صلاحية أباند هذا العضو! (تأكد أن رتبة البوت أعلى من العضو)")
     except Exception as e:
         await ctx.send(f"❌ خطأ: {e}")
 
@@ -441,7 +441,7 @@ async def on_message(message):
             await message.reply(reply, mention_author=False)
             return
 
-    if content.startswith("شيل"):
+    if content == "شيل" or content.startswith("شيل ") or content.startswith("شيل<"):
         rest = content[len("شيل"):].strip()
         parts = rest.split()
         if message.mentions:
@@ -518,7 +518,7 @@ async def on_message(message):
             await member.edit(roles=all_roles)
             await message.channel.send(f"✅ تم إعطاء {member.mention} جميع الرولات ({len(assignable)} رول)")
         except discord.Forbidden:
-            await message.channel.send("❌ ما عندي صلاحية أعطي بعض الرولات!")
+            await message.channel.send("❌ ما عندي صلاحية أعطي بعض الرولات! (تأكد أن رتبة البوت أعلى من الرتب)")
         except Exception as e:
             await message.channel.send(f"❌ خطأ: {e}")
         return
@@ -544,7 +544,7 @@ async def on_message(message):
         bot_top_position = bot_member.top_role.position if bot_member else 0
         member_top = member.top_role
         if member_top.managed or member_top.position >= bot_top_position:
-            await message.channel.send("❌ ما أقدر أخفض أعلى رتبة لهذا العضو بسبب ترتيب الرتب.")
+            await message.channel.send("❌ ما أقدر أخفض هذا العضو لأن رتبته أعلى من رتبة البوت أو مساوية لها! ارفع رتبة البوت فوقه.")
             return
 
         eligible = sorted(
@@ -567,7 +567,7 @@ async def on_message(message):
             names = " ← ".join(r.name for r in to_remove)
             await message.channel.send(f"⬇️ تم تخفيض {member.mention} بـ {len(to_remove)} رتبة: **{names}**")
         except discord.Forbidden:
-            await message.channel.send("❌ ما عندي صلاحية أخفض هذا العضو!")
+            await message.channel.send("❌ ما عندي صلاحية أخفض هذا العضو! (تأكد أن رتبة البوت أعلى من رتبته)")
         except Exception as e:
             await message.channel.send(f"❌ خطأ: {e}")
         return
@@ -590,11 +590,14 @@ async def on_message(message):
                 steps = int(parts[0])
             except:
                 steps = 1
+        bot_member = message.guild.get_member(bot.user.id)
+        bot_top_position = bot_member.top_role.position if bot_member else 0
         sorted_roles = sorted(message.guild.roles, key=lambda r: r.position)
         member_top = member.top_role
-        eligible = [r for r in sorted_roles if r.position > member_top.position and not r.managed and r.name != "@everyone"]
+        
+        eligible = [r for r in sorted_roles if r.position > member_top.position and r.position < bot_top_position and not r.managed and r.name != "@everyone"]
         if not eligible:
-            await message.channel.send(f"❌ {member.mention} وصل أعلى رتبة ممكنة!")
+            await message.channel.send(f"❌ {member.mention} وصل أعلى رتبة ممكنة أو أن رتبة البوت أدنى من الرتب المطلوبة!")
             return
         to_add = eligible[:steps]
         try:
@@ -602,7 +605,7 @@ async def on_message(message):
             names = " ← ".join(r.name for r in to_add)
             await message.channel.send(f"⬆️ تمت ترقية {member.mention} بـ {len(to_add)} رتبة: **{names}**")
         except discord.Forbidden:
-            await message.channel.send("❌ ما عندي صلاحية أرقي هذا العضو!")
+            await message.channel.send("❌ ما عندي صلاحية أرقي هذا العضو! (يجب أن تكون رتبة البوت أعلى من الرتبة المراد إعطاؤها وعليها صلاحية إدارة الرتب)")
         except Exception as e:
             await message.channel.send(f"❌ خطأ: {e}")
         return
@@ -638,7 +641,7 @@ async def on_message(message):
                 await member.add_roles(role)
                 await message.channel.send(f"✅ تم إعطاء {member.mention} رول **{role.name}**")
             except discord.Forbidden:
-                await message.channel.send("❌ ما عندي صلاحية أعطي هذا الرول!")
+                await message.channel.send("❌ ما عندي صلاحية أعطي هذا الرول! (رتبة البوت أدنى من الرول)")
             except Exception as e:
                 await message.channel.send(f"❌ خطأ: {e}")
             return
@@ -662,7 +665,7 @@ async def on_message(message):
                 await message.channel.send(f"❌ خطأ: {e}")
             return
 
-    if content.startswith("فك"):
+    if content == "فك" or content.startswith("فك ") or content.startswith("فك<"):
         rest = content[len("فك"):].strip()
         parts = rest.split()
         if parts:
