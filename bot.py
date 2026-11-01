@@ -312,14 +312,12 @@ async def do_timeout(ctx, member: discord.Member, duration: str, reason: str = "
         unit_label = labels.get(duration[-1].lower(), '')
         await ctx.send(f"🔇 تم إسكات {member.mention} لمدة {duration[:-1]} {unit_label} | السبب: {reason}")
 
-        log_msg = (
-            f"🔇 **تايم اوت جديد**\n"
-            f"👤 العضو: {member.mention} ('{member}')\n"
-            f"⏱️ المدة: {duration[:-1]} {unit_label}\n"
-            f"📝 السبب: {reason}\n"
-            f"🛡️ بواسطة: {ctx.author.mention} ('{ctx.author}')\n"
-            f"🏠 السيرفر: {ctx.guild.name}"
-        )
+        log_msg = f"""🔇 **تايم اوت جديد**
+👤 العضو: {member.mention} (`{member}`)
+⏱️ المدة: {duration[:-1]} {unit_label}
+📝 السبب: {reason}
+🛡️ بواسطة: {ctx.author.mention} (`{ctx.author}`)
+🏠 السيرفر: {ctx.guild.name}"""
         await notify_owners(bot, log_msg)
 
     except discord.Forbidden:
@@ -342,14 +340,12 @@ async def do_temp_ban(ctx, member: discord.Member, duration: str = None, reason:
         await member.ban(reason=f"{reason} | بواسطة {ctx.author}")
         await ctx.send(f"🔨 تم باند {member.mention} | المدة: {duration_label} | السبب: {reason}")
 
-        log_msg = (
-            f"🔨 **باند جديد**\n"
-            f"👤 العضو: {member} ('{member.id}')\n"
-            f"⏱️ المدة: {duration_label}\n"
-            f"📝 السبب: {reason}\n"
-            f"🛡️ بواسطة: {ctx.author.mention} ('{ctx.author}')\n"
-            f"🏠 السيرفر: {ctx.guild.name}"
-        )
+        log_msg = f"""🔨 **باند جديد**
+👤 العضو: {member} (`{member.id}`)
+⏱️ المدة: {duration_label}
+📝 السبب: {reason}
+🛡️ بواسطة: {ctx.author.mention} (`{ctx.author}`)
+🏠 السيرفر: {ctx.guild.name}"""
         await notify_owners(bot, log_msg)
 
         if delta:
@@ -375,15 +371,15 @@ async def do_unban(ctx, query: str):
                 user = entry.user
                 break
         if not user:
-            return await ctx.send(f"❌ ما لقيت يوزر بالاسم أو الـ ID: '{query}'")
+            return await ctx.send(f"❌ ما لقيت يوزر بالاسم أو الـ ID: `{query}`")
         await ctx.guild.unban(user, reason=f"فك البان بواسطة {ctx.author}")
         await ctx.send(f"✅ تم فك البان عن **{user}**")
-        await notify_owners(bot,
-            f"✅ **فك بان**\n"
-            f"👤 العضو: {user} ('{user.id}')\n"
-            f"🛡️ بواسطة: {ctx.author.mention}\n"
-            f"🏠 السيرفر: {ctx.guild.name}"
-        )
+        
+        log_msg = f"""✅ **فك بان**
+👤 العضو: {user} (`{user.id}`)
+🛡️ بواسطة: {ctx.author.mention}
+🏠 السيرفر: {ctx.guild.name}"""
+        await notify_owners(bot, log_msg)
     except discord.Forbidden:
         await ctx.send("❌ ما عندي صلاحية أفك البان!")
     except Exception as e:
@@ -391,13 +387,495 @@ async def do_unban(ctx, query: str):
 
 async def do_untimeout(ctx, member: discord.Member, reason: str):
     if not has_administrator_permission(ctx.author):
-        return await ctx.send("❌ ما عندك صلاحية! (مخصصة للستريتر)")
+        return await ctx.send("❌ ما عندك صلاحية! (مخصصة للسترتر)")
     try:
         await member.timeout(None, reason=reason)
         await ctx.send(f"✅ تم شيل التايم اوت عن {member.mention} | السبب: {reason}")
 
-        log_msg = (
-            f"✅ **تم شيل التايم اوت**\n"
-            f"👤 العضو: {member.mention} ('{member}')\n"
-            f"📝 السبب: {reason}\n"
-            f"🛡️
+        log_msg = f"""✅ **تم شيل التايم اوت**
+👤 العضو: {member.mention} (`{member}`)
+📝 السبب: {reason}
+🛡️ بواسطة: {ctx.author.mention} (`{ctx.author}`)
+🏠 السيرفر: {ctx.guild.name}"""
+        await notify_owners(bot, log_msg)
+    except discord.Forbidden:
+        await ctx.send("❌ ما عندي صلاحية أشيل التايم اوت!")
+    except Exception as e:
+        await ctx.send(f"❌ خطأ: {e}")
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    content = message.content.strip()
+
+    if bot.user in message.mentions and not message.mention_everyone:
+        stripped = content
+        for mstr in (f"<@{bot.user.id}>", f"<@!{bot.user.id}>"):
+            stripped = stripped.replace(mstr, "").strip()
+        if not stripped:
+            await message.channel.send("هلا انا موجود")
+            return
+        if not AI_ENABLED:
+            await message.reply("الذكاء الاصطناعي متوقف حاليًا.", mention_author=False)
+            return
+        else:
+            async with message.channel.typing():
+                reply = await ask_ai(stripped)
+            await message.reply(reply, mention_author=False)
+            return
+
+    if content.startswith("شيل"):
+        rest = content[len("شيل"):].strip()
+        parts = rest.split()
+        if message.mentions:
+            member = message.mentions[0]
+            reason = " ".join(parts[1:]) if len(parts) > 1 else "بدون سبب"
+            ctx = await bot.get_context(message)
+            await do_untimeout(ctx, member, reason)
+            return
+
+    if content == "قفل" or content == "ق" or content.startswith("قفل ") or content.startswith("ق "):
+        author_member = message.guild.get_member(message.author.id) or await message.guild.fetch_member(message.author.id)
+        is_allowed = (
+            message.author.id == OWNER_ID
+            or (author_member and author_member.guild_permissions.administrator)
+        )
+        if not is_allowed:
+            await message.channel.send("❌ ما عندك صلاحية قفل الروم (تتطلب ادمنستريتر)!")
+            return
+        target = message.channel_mentions[0] if message.channel_mentions else message.channel
+        overwrite = target.overwrites_for(message.guild.default_role)
+        overwrite.send_messages = False
+        try:
+            await target.set_permissions(message.guild.default_role, overwrite=overwrite)
+            await message.channel.send(f"🔒 تم قفل {target.mention}")
+        except discord.Forbidden:
+            await message.channel.send("❌ ما عندي صلاحية أقفل هذا الروم!")
+        except Exception as e:
+            await message.channel.send(f"❌ خطأ: {e}")
+        return
+
+    if content == "فتح" or content == "ف" or content.startswith("فتح ") or content.startswith("ف "):
+        author_member = message.guild.get_member(message.author.id) or await message.guild.fetch_member(message.author.id)
+        is_allowed = (
+            message.author.id == OWNER_ID
+            or (author_member and author_member.guild_permissions.administrator)
+        )
+        if not is_allowed:
+            await message.channel.send("❌ ما عندك صلاحية فتح الروم (تتطلب ادمنستريتر)!")
+            return
+        target = message.channel_mentions[0] if message.channel_mentions else message.channel
+        overwrite = target.overwrites_for(message.guild.default_role)
+        overwrite.send_messages = True
+        try:
+            await target.set_permissions(message.guild.default_role, overwrite=overwrite)
+            await message.channel.send(f"🔓 تم فتح {target.mention}")
+        except discord.Forbidden:
+            await message.channel.send("❌ ما عندي صلاحية أفتح هذا الروم!")
+        except Exception as e:
+            await message.channel.send(f"❌ خطأ: {e}")
+        return
+
+    if content.startswith("اعطي كل الرولات"):
+        if message.author.id != OWNER_ID and message.author.name not in CO_OWNERS:
+            await message.channel.send("❌ هذا الأمر لصاحب البوت ونائبه فقط!")
+            return
+        if not message.mentions:
+            await message.channel.send("❌ منشن العضو!")
+            return
+        member = message.mentions[0]
+        bot_member = message.guild.get_member(bot.user.id)
+        bot_top = bot_member.top_role.position if bot_member else 0
+        assignable = [
+            r for r in message.guild.roles
+            if r.position < bot_top
+            and not r.managed
+            and r.name != "@everyone"
+            and r not in member.roles
+        ]
+        if not assignable:
+            await message.channel.send(f"❌ ما في رولات ممكن أعطيها لـ {member.mention}")
+            return
+        try:
+            all_roles = list(set(member.roles + assignable))
+            await member.edit(roles=all_roles)
+            await message.channel.send(f"✅ تم إعطاء {member.mention} جميع الرولات ({len(assignable)} رول)")
+        except discord.Forbidden:
+            await message.channel.send("❌ ما عندي صلاحية أعطي بعض الرولات!")
+        except Exception as e:
+            await message.channel.send(f"❌ خطأ: {e}")
+        return
+
+    if content.startswith("تخفيض"):
+        rest = content[len("تخفيض"):].strip()
+        if message.mentions:
+            member = message.mentions[0]
+            author_member = message.guild.get_member(message.author.id)
+            if not author_member or not can_manage_ranks(author_member):
+                await message.channel.send("❌ ما عندك صلاحية تخفيض!")
+                return
+            parts = [p for p in rest.split() if not p.startswith('<@')]
+            steps = 1
+            if parts:
+                try:
+                    steps = int(parts[0])
+                except:
+                    steps = 1
+            bot_member = message.guild.get_member(bot.user.id)
+            bot_top_position = bot_member.top_role.position if bot_member else 0
+            member_top = member.top_role
+            if member_top.managed or member_top.position >= bot_top_position:
+                await message.channel.send("❌ ما أقدر أخفض أعلى رتبة لهذا العضو بسبب ترتيب الرتب.")
+                return
+
+            eligible = sorted(
+                [
+                    role
+                    for role in member.roles
+                    if role.name != "@everyone"
+                    and not role.managed
+                    and role.position < bot_top_position
+                ],
+                key=lambda role: role.position,
+                reverse=True,
+            )
+            if not eligible:
+                await message.channel.send(f"❌ {member.mention} ما عنده رتب تقدر تنزلها!")
+                return
+            to_remove = eligible[:steps]
+            try:
+                await member.remove_roles(*to_remove)
+                names = " ← ".join(r.name for r in to_remove)
+                await message.channel.send(f"⬇️ تم تخفيض {member.mention} بـ {len(to_remove)} رتبة: **{names}**")
+            except discord.Forbidden:
+                await message.channel.send("❌ ما عندي صلاحية أخفض هذا العضو!")
+            except Exception as e:
+                await message.channel.send(f"❌ خطأ: {e}")
+            return
+
+    if content.startswith("ترقية") or content.startswith("ترقيه"):
+        trigger = "ترقية" if content.startswith("ترقية") else "ترقيه"
+        rest = content[len(trigger):].strip()
+        if message.mentions:
+            member = message.mentions[0]
+            author_member = message.guild.get_member(message.author.id)
+            if not author_member or not can_manage_ranks(author_member):
+                await message.channel.send("❌ ما عندك صلاحية ترقية!")
+                return
+            parts = [p for p in rest.split() if not p.startswith('<@')]
+            steps = 1
+            if parts:
+                try:
+                    steps = int(parts[0])
+                except:
+                    steps = 1
+            sorted_roles = sorted(message.guild.roles, key=lambda r: r.position)
+            member_top = member.top_role
+            eligible = [r for r in sorted_roles if r.position > member_top.position and not r.managed and r.name != "@everyone"]
+            if not eligible:
+                await message.channel.send(f"❌ {member.mention} وصل أعلى رتبة ممكنة!")
+                return
+            to_add = eligible[:steps]
+            try:
+                await member.add_roles(*to_add)
+                names = " ← ".join(r.name for r in to_add)
+                await message.channel.send(f"⬆️ تمت ترقية {member.mention} بـ {len(to_add)} رتبة: **{names}**")
+            except discord.Forbidden:
+                await message.channel.send("❌ ما عندي صلاحية أرقي هذا العضو!")
+            except Exception as e:
+                await message.channel.send(f"❌ خطأ: {e}")
+            return
+
+    if content.startswith("رول") or (content.startswith("ر ") or content == "ر"):
+        trigger = "رول" if content.startswith("رول") else "ر"
+        rest = content[len(trigger):].strip()
+        parts = rest.split()
+        if message.mentions and len(parts) >= 2:
+            member = message.mentions[0]
+            role_name = " ".join(parts[1:])
+            author_member = message.guild.get_member(message.author.id)
+            
+            is_allowed_give = (
+                author_member.id == OWNER_ID 
+                or author_member.guild_permissions.administrator 
+                or author_member.guild_permissions.manage_roles
+            )
+            
+            if not is_allowed_give:
+                await message.channel.send("❌ ما عندك صلاحية إعطاء رولات!")
+                return
+                
+            role = None
+            if role_name.isdigit():
+                role = message.guild.get_role(int(role_name))
+            if not role:
+                role = discord.utils.find(lambda r: role_name.lower() in r.name.lower(), message.guild.roles)
+            if not role:
+                await message.channel.send(f"❌ ما لقيت رول: **{role_name}**")
+                return
+            try:
+                await member.add_roles(role)
+                await message.channel.send(f"✅ تم إعطاء {member.mention} رول **{role.name}**")
+            except discord.Forbidden:
+                await message.channel.send("❌ ما عندي صلاحية أعطي هذا الرول!")
+            except Exception as e:
+                await message.channel.send(f"❌ خطأ: {e}")
+            return
+
+    if content.startswith("نك"):
+        rest = content[len("نك"):].strip()
+        parts = rest.split()
+        if message.mentions and len(parts) >= 2:
+            member = message.mentions[0]
+            new_nick = " ".join(parts[1:])
+            ctx = await bot.get_context(message)
+            if not (ctx.author.guild_permissions.manage_nicknames or ctx.author.id == OWNER_ID):
+                await message.channel.send("❌ ما عندك صلاحية تغيير النيك نيم بالرول!")
+                return
+            try:
+                await member.edit(nick=new_nick)
+                await message.channel.send(f"✅ تم تغيير نيك نيم {member.mention} إلى **{new_nick}**")
+            except discord.Forbidden:
+                await message.channel.send("❌ ما عندي صلاحية أغير نيك نيم هذا العضو!")
+            except Exception as e:
+                await message.channel.send(f"❌ خطأ: {e}")
+            return
+
+    if content.startswith("فك"):
+        rest = content[len("فك"):].strip()
+        parts = rest.split()
+        if parts:
+            ctx = await bot.get_context(message)
+            await do_unban(ctx, parts[0])
+            return
+
+    for trigger in TIMEOUT_TRIGGERS:
+        if content == trigger or content.startswith(trigger + " ") or content.startswith(trigger + "<"):
+            rest = content[len(trigger):].strip()
+            parts = rest.split()
+            if len(parts) >= 2 and message.mentions:
+                member = message.mentions[0]
+                duration = parts[1] if len(parts) > 1 else parts[0]
+                reason = " ".join(parts[2:]) if len(parts) > 2 else "بدون سبب"
+                ctx = await bot.get_context(message)
+                await do_timeout(ctx, member, duration, reason)
+                return
+
+    for trigger in BAN_TRIGGERS:
+        if content == trigger or content.startswith(trigger + " ") or content.startswith(trigger + "<"):
+            rest = content[len(trigger):].strip()
+            parts = rest.split()
+            if message.mentions:
+                member = message.mentions[0]
+                non_mention_parts = [p for p in parts if not p.startswith('<@')]
+                duration = None
+                reason = "بدون سبب"
+                if non_mention_parts:
+                    if parse_duration(non_mention_parts[0]):
+                        duration = non_mention_parts[0]
+                        reason = " ".join(non_mention_parts[1:]) if len(non_mention_parts) > 1 else "بدون سبب"
+                    else:
+                        reason = " ".join(non_mention_parts)
+                ctx = await bot.get_context(message)
+                await do_temp_ban(ctx, member, duration, reason)
+            else:
+                await message.channel.send("❌ لازم تمنشن العضو اللي تبي تبنّه! تأكد إنك تختاره من قائمة الاقتراحات لما تكتب @")
+            return
+
+    await bot.process_commands(message)
+
+async def send_dm(member, message, results, rate_limiter):
+    payload = f"{message}\n{member.mention}"
+
+    for attempt in range(BROADCAST_MAX_ATTEMPTS):
+        try:
+            await rate_limiter.wait()
+            await member.send(payload)
+            results['success'] += 1
+            return
+        except discord.Forbidden:
+            results['failed'].append(member)
+            return
+        except discord.HTTPException as error:
+            retryable = error.status == 429 or error.status >= 500
+            if not retryable or attempt == BROADCAST_MAX_ATTEMPTS - 1:
+                results['failed'].append(member)
+                return
+
+            retry_after = getattr(error, "retry_after", None)
+            backoff = 2 ** attempt
+            wait_seconds = min(float(retry_after or backoff), 15.0)
+            await asyncio.sleep(wait_seconds)
+        except (asyncio.TimeoutError, OSError):
+            if attempt == BROADCAST_MAX_ATTEMPTS - 1:
+                results['failed'].append(member)
+                return
+            await asyncio.sleep(2 ** attempt)
+        except Exception:
+            results['failed'].append(member)
+            return
+
+
+class BroadcastRateLimiter:
+    def __init__(self, min_interval):
+        self.min_interval = min_interval
+        self.lock = asyncio.Lock()
+        self.next_request_at = 0.0
+
+    async def wait(self):
+        async with self.lock:
+            loop = asyncio.get_running_loop()
+            now = loop.time()
+            wait_for = max(0.0, self.next_request_at - now)
+            self.next_request_at = max(now, self.next_request_at) + self.min_interval
+        if wait_for:
+            await asyncio.sleep(wait_for)
+
+
+async def broadcast_worker(queue, message, results, rate_limiter):
+    while True:
+        member = await queue.get()
+        try:
+            if member is None:
+                return
+            await send_dm(member, message, results, rate_limiter)
+        finally:
+            queue.task_done()
+
+@bot.command()
+async def leaveall(ctx):
+    if not is_authorized(ctx):
+        return await ctx.send("❌ هذا الامر فقط لصاحب البوت ول @b0pm")
+    await ctx.send(f"👋 جاري مغادرة {len(bot.guilds)} سيرفر...")
+    for guild in list(bot.guilds):
+        try:
+            await guild.leave()
+        except:
+            pass
+
+@bot.command(name="اطلع")
+async def leave_current_guild(ctx):
+    if not is_authorized(ctx):
+        return await ctx.send("❌ هذا الأمر فقط لصاحب البوت ونائبه.")
+    if ctx.guild is None:
+        return await ctx.send("❌ استخدم هذا الأمر داخل سيرفر.")
+
+    guild = ctx.guild
+    await ctx.send(f"👋 بطلع من السيرفر **{guild.name}** الآن.")
+    try:
+        await guild.leave()
+    except discord.Forbidden:
+        await ctx.send("❌ ما قدرت أطلع من هذا السيرفر.")
+    except discord.HTTPException:
+        await ctx.send("❌ صار خطأ مؤقت أثناء مغادرة السيرفر.")
+
+def can_broadcast(ctx):
+    return ctx.author.id == OWNER_ID or ctx.author.id == BROADCAST_OWNER_ID
+
+@bot.command(name="يوزر")
+async def suggest_usernames(ctx, count: int = 30):
+    import random, string
+    chars = string.ascii_letters + string.digits
+    seps = ['.', '_']
+    pool = set()
+
+    for _ in range(3000):
+        base = ''.join(random.choices(chars, k=3))
+        sep = random.choice(seps)
+        pos = random.randint(0, 3)
+        name = base[:pos] + sep + base[pos:]
+        pool.add(name)
+
+    picked = random.sample(list(pool), min(count, len(pool)))
+    picked.sort()
+
+    lines = "\n".join(f"`{s}`" for s in picked)
+    await ctx.send(f"💎 **{len(picked)} يوزر شبه ثلاثي:**\n{lines}")
+
+@bot.command(name="بحث")
+async def search_three(ctx):
+    await ctx.send("🔍 جاري البحث عن يوزرات ثلاثية...")
+    results = []
+    for member in ctx.guild.members:
+        name = member.name
+        clean = name.replace('.', '').replace('_', '')
+        specials = [c for c in name if c in ('.', '_')]
+        if len(clean) == 3 and len(specials) <= 1:
+            results.append(f"⭐ `{name}` — {member.mention}")
+
+    if not results:
+        return await ctx.send("❌ ما لقيت يوزرات ثلاثية")
+
+    chunks = []
+    chunk = ""
+    for line in results:
+        if len(chunk) + len(line) + 1 > 1900:
+            chunks.append(chunk)
+            chunk = line + "\n"
+        else:
+            chunk += line + "\n"
+    if chunk:
+        chunks.append(chunk)
+
+    await ctx.send(f"📋 وجدت **{len(results)}** يوزر ثلاثي:")
+    for c in chunks:
+        await ctx.send(c)
+
+@bot.command()
+async def bc(ctx, mode: str, *, message):
+    if not can_broadcast(ctx):
+        return await ctx.send("❌ هذا الأمر مخصص لصاحب البوت ونائبه فقط.")
+
+    message = message.strip()
+    if not message:
+        return await ctx.send("❌ اكتب الرسالة التي تريد إرسالها.")
+    if len(message) > 1900:
+        return await ctx.send("❌ الرسالة طويلة جدًا. الحد الأقصى 1900 حرف.")
+
+    mode = mode.lower()
+
+    if mode == "all":
+        targets = [m for m in ctx.guild.members if not m.bot and m.name not in BLACKLIST]
+        label = "كل الأعضاء (متصل وغير متصل)"
+    elif mode == "online":
+        targets = [m for m in ctx.guild.members if not m.bot and m.status != discord.Status.offline and m.name not in BLACKLIST]
+        label = "الأعضاء المتصلين فقط"
+    elif mode == "offline":
+        targets = [m for m in ctx.guild.members if not m.bot and m.status == discord.Status.offline and m.name not in BLACKLIST]
+        label = "الأعضاء غير المتصلين فقط"
+    else:
+        return await ctx.send("❌ الوضع غير صحيح! استخدم: `!bc all` أو `!bc online` أو `!bc offline`")
+
+    await ctx.send(f"🚀 جاري الإرسال لـ {len(targets)} عضو ({label})...")
+
+    results = {'success': 0, 'failed': []}
+    rate_limiter = BroadcastRateLimiter(BROADCAST_MIN_INTERVAL)
+    queue = asyncio.Queue()
+    for member in targets:
+        await queue.put(member)
+    for _ in range(min(BROADCAST_CONCURRENCY, max(1, len(targets)))):
+        await queue.put(None)
+
+    workers = [
+        asyncio.create_task(broadcast_worker(queue, message, results, rate_limiter))
+        for _ in range(min(BROADCAST_CONCURRENCY, max(1, len(targets))))
+    ]
+    await queue.join()
+    await asyncio.gather(*workers)
+
+    await ctx.send(f"✅ تم الانتهاء! وصل لـ {results['success']} عضو. فشل: {len(results['failed'])}.")
+
+    if results['failed']:
+        mentions = " ".join(m.mention for m in results['failed'])
+        chunks = [mentions[i:i+1900] for i in range(0, len(mentions), 1900)]
+        for chunk in chunks:
+            await ctx.send(f"❌ الأعضاء اللي ما وصلهم الرسالة:\n{chunk}")
+
+if __name__ == "__main__":
+    keep_alive()
+    TOKEN = os.environ.get('DISCORD_TOKEN')
+    if not TOKEN:
+        raise ValueError("❌ DISCORD_TOKEN environment variable is not set!")
+    bot.run(TOKEN)
