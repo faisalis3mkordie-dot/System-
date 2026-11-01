@@ -293,7 +293,7 @@ def parse_duration(duration_str):
     except:
         return None
 
-# ── أوامر التايم اوت ──
+# ── دوال العقوبات والإدارة ──
 async def do_timeout(ctx, member: discord.Member, duration: str, reason: str = "بدون سبب"):
     author = ctx.author
     if not has_administrator_permission(author):
@@ -325,7 +325,22 @@ async def do_timeout(ctx, member: discord.Member, duration: str, reason: str = "
     except Exception as e:
         await ctx.send(f"❌ خطأ: {e}")
 
-TIMEOUT_TRIGGERS = ["تايم", "اسكت", "كل تبن", "كل زق"]
+async def do_warn(ctx, member: discord.Member, reason: str = "بدون سبب"):
+    if not has_administrator_permission(ctx.author):
+        return await ctx.send("❌ ما عندك صلاحية تحذير! (مخصصة للسترتر)")
+    try:
+        await ctx.send(f"⚠️ تم تحذير {member.mention} | السبب: {reason}")
+        log_msg = f"""⚠️ **تحذير جديد**
+👤 العضو: {member.mention} (`{member}`)
+📝 السبب: {reason}
+🛡️ بواسطة: {ctx.author.mention} (`{ctx.author}`)
+🏠 السيرفر: {ctx.guild.name}"""
+        await notify_owners(bot, log_msg)
+    except Exception as e:
+        await ctx.send(f"❌ خطأ: {e}")
+
+TIMEOUT_TRIGGERS = ["تايم", "ميوت", "اسكات", "اسكت", "كل تبن", "كل زق"]
+WARN_TRIGGERS = ["تحذير", "انذار"]
 BAN_TRIGGERS = ["تف", "برا", "انقلع", "لف", "L", "مالديف", "خختفو", "شد"]
 
 async def do_temp_ban(ctx, member: discord.Member, duration: str = None, reason: str = "بدون سبب"):
@@ -509,84 +524,88 @@ async def on_message(message):
         return
 
     if content.startswith("تخفيض"):
-        rest = content[len("تخفيض"):].strip()
-        if message.mentions:
-            member = message.mentions[0]
-            author_member = message.guild.get_member(message.author.id)
-            if not author_member or not can_manage_ranks(author_member):
-                await message.channel.send("❌ ما عندك صلاحية تخفيض!")
-                return
-            parts = [p for p in rest.split() if not p.startswith('<@')]
-            steps = 1
-            if parts:
-                try:
-                    steps = int(parts[0])
-                except:
-                    steps = 1
-            bot_member = message.guild.get_member(bot.user.id)
-            bot_top_position = bot_member.top_role.position if bot_member else 0
-            member_top = member.top_role
-            if member_top.managed or member_top.position >= bot_top_position:
-                await message.channel.send("❌ ما أقدر أخفض أعلى رتبة لهذا العضو بسبب ترتيب الرتب.")
-                return
-
-            eligible = sorted(
-                [
-                    role
-                    for role in member.roles
-                    if role.name != "@everyone"
-                    and not role.managed
-                    and role.position < bot_top_position
-                ],
-                key=lambda role: role.position,
-                reverse=True,
-            )
-            if not eligible:
-                await message.channel.send(f"❌ {member.mention} ما عنده رتب تقدر تنزلها!")
-                return
-            to_remove = eligible[:steps]
-            try:
-                await member.remove_roles(*to_remove)
-                names = " ← ".join(r.name for r in to_remove)
-                await message.channel.send(f"⬇️ تم تخفيض {member.mention} بـ {len(to_remove)} رتبة: **{names}**")
-            except discord.Forbidden:
-                await message.channel.send("❌ ما عندي صلاحية أخفض هذا العضو!")
-            except Exception as e:
-                await message.channel.send(f"❌ خطأ: {e}")
+        if not message.mentions:
+            await message.channel.send("❌ لازم تمنشن العضو! مثال: `تخفيض @العضو 1`")
             return
+        member = message.mentions[0]
+        author_member = message.guild.get_member(message.author.id)
+        if not author_member or not can_manage_ranks(author_member):
+            await message.channel.send("❌ ما عندك صلاحية تخفيض!")
+            return
+        rest = content[len("تخفيض"):].strip()
+        parts = [p for p in rest.split() if not p.startswith('<@')]
+        steps = 1
+        if parts:
+            try:
+                steps = int(parts[0])
+            except:
+                steps = 1
+        bot_member = message.guild.get_member(bot.user.id)
+        bot_top_position = bot_member.top_role.position if bot_member else 0
+        member_top = member.top_role
+        if member_top.managed or member_top.position >= bot_top_position:
+            await message.channel.send("❌ ما أقدر أخفض أعلى رتبة لهذا العضو بسبب ترتيب الرتب.")
+            return
+
+        eligible = sorted(
+            [
+                role
+                for role in member.roles
+                if role.name != "@everyone"
+                and not role.managed
+                and role.position < bot_top_position
+            ],
+            key=lambda role: role.position,
+            reverse=True,
+        )
+        if not eligible:
+            await message.channel.send(f"❌ {member.mention} ما عنده رتب تقدر تنزلها!")
+            return
+        to_remove = eligible[:steps]
+        try:
+            await member.remove_roles(*to_remove)
+            names = " ← ".join(r.name for r in to_remove)
+            await message.channel.send(f"⬇️ تم تخفيض {member.mention} بـ {len(to_remove)} رتبة: **{names}**")
+        except discord.Forbidden:
+            await message.channel.send("❌ ما عندي صلاحية أخفض هذا العضو!")
+        except Exception as e:
+            await message.channel.send(f"❌ خطأ: {e}")
+        return
 
     if content.startswith("ترقية") or content.startswith("ترقيه"):
         trigger = "ترقية" if content.startswith("ترقية") else "ترقيه"
-        rest = content[len(trigger):].strip()
-        if message.mentions:
-            member = message.mentions[0]
-            author_member = message.guild.get_member(message.author.id)
-            if not author_member or not can_manage_ranks(author_member):
-                await message.channel.send("❌ ما عندك صلاحية ترقية!")
-                return
-            parts = [p for p in rest.split() if not p.startswith('<@')]
-            steps = 1
-            if parts:
-                try:
-                    steps = int(parts[0])
-                except:
-                    steps = 1
-            sorted_roles = sorted(message.guild.roles, key=lambda r: r.position)
-            member_top = member.top_role
-            eligible = [r for r in sorted_roles if r.position > member_top.position and not r.managed and r.name != "@everyone"]
-            if not eligible:
-                await message.channel.send(f"❌ {member.mention} وصل أعلى رتبة ممكنة!")
-                return
-            to_add = eligible[:steps]
-            try:
-                await member.add_roles(*to_add)
-                names = " ← ".join(r.name for r in to_add)
-                await message.channel.send(f"⬆️ تمت ترقية {member.mention} بـ {len(to_add)} رتبة: **{names}**")
-            except discord.Forbidden:
-                await message.channel.send("❌ ما عندي صلاحية أرقي هذا العضو!")
-            except Exception as e:
-                await message.channel.send(f"❌ خطأ: {e}")
+        if not message.mentions:
+            await message.channel.send("❌ لازم تمنشن العضو! مثال: `ترقية @العضو 1`")
             return
+        member = message.mentions[0]
+        author_member = message.guild.get_member(message.author.id)
+        if not author_member or not can_manage_ranks(author_member):
+            await message.channel.send("❌ ما عندك صلاحية ترقية!")
+            return
+        rest = content[len(trigger):].strip()
+        parts = [p for p in rest.split() if not p.startswith('<@')]
+        steps = 1
+        if parts:
+            try:
+                steps = int(parts[0])
+            except:
+                steps = 1
+        sorted_roles = sorted(message.guild.roles, key=lambda r: r.position)
+        member_top = member.top_role
+        eligible = [r for r in sorted_roles if r.position > member_top.position and not r.managed and r.name != "@everyone"]
+        if not eligible:
+            await message.channel.send(f"❌ {member.mention} وصل أعلى رتبة ممكنة!")
+            return
+        to_add = eligible[:steps]
+        try:
+            await member.add_roles(*to_add)
+            names = " ← ".join(r.name for r in to_add)
+            await message.channel.send(f"⬆️ تمت ترقية {member.mention} بـ {len(to_add)} رتبة: **{names}**")
+        except discord.Forbidden:
+            await message.channel.send("❌ ما عندي صلاحية أرقي هذا العضو!")
+        except Exception as e:
+            await message.channel.send(f"❌ خطأ: {e}")
+        return
 
     if content.startswith("رول") or (content.startswith("ر ") or content == "ر"):
         trigger = "رول" if content.startswith("رول") else "ر"
@@ -653,35 +672,55 @@ async def on_message(message):
 
     for trigger in TIMEOUT_TRIGGERS:
         if content == trigger or content.startswith(trigger + " ") or content.startswith(trigger + "<"):
-            rest = content[len(trigger):].strip()
-            parts = rest.split()
-            if len(parts) >= 2 and message.mentions:
-                member = message.mentions[0]
-                duration = parts[1] if len(parts) > 1 else parts[0]
-                reason = " ".join(parts[2:]) if len(parts) > 2 else "بدون سبب"
-                ctx = await bot.get_context(message)
-                await do_timeout(ctx, member, duration, reason)
+            if not message.mentions:
+                await message.channel.send("❌ لازم تمنشن العضو! مثال: `تايم @العضو 1m`")
                 return
+            member = message.mentions[0]
+            rest = content[len(trigger):].strip()
+            parts = [p for p in rest.split() if not p.startswith('<@')]
+            duration = "5m"
+            reason = "بدون سبب"
+            if parts:
+                if parse_duration(parts[0]):
+                    duration = parts[0]
+                    reason = " ".join(parts[1:]) if len(parts) > 1 else "بدون سبب"
+                else:
+                    reason = " ".join(parts)
+            ctx = await bot.get_context(message)
+            await do_timeout(ctx, member, duration, reason)
+            return
+
+    for trigger in WARN_TRIGGERS:
+        if content == trigger or content.startswith(trigger + " ") or content.startswith(trigger + "<"):
+            if not message.mentions:
+                await message.channel.send("❌ لازم تمنشن العضو! مثال: `تحذير @العضو السبب`")
+                return
+            member = message.mentions[0]
+            rest = content[len(trigger):].strip()
+            parts = [p for p in rest.split() if not p.startswith('<@')]
+            reason = " ".join(parts) if parts else "بدون سبب"
+            ctx = await bot.get_context(message)
+            await do_warn(ctx, member, reason)
+            return
 
     for trigger in BAN_TRIGGERS:
         if content == trigger or content.startswith(trigger + " ") or content.startswith(trigger + "<"):
+            if not message.mentions:
+                await message.channel.send("❌ لازم تمنشن العضو اللي تبي تبنّه!")
+                return
+            member = message.mentions[0]
             rest = content[len(trigger):].strip()
-            parts = rest.split()
-            if message.mentions:
-                member = message.mentions[0]
-                non_mention_parts = [p for p in parts if not p.startswith('<@')]
-                duration = None
-                reason = "بدون سبب"
-                if non_mention_parts:
-                    if parse_duration(non_mention_parts[0]):
-                        duration = non_mention_parts[0]
-                        reason = " ".join(non_mention_parts[1:]) if len(non_mention_parts) > 1 else "بدون سبب"
-                    else:
-                        reason = " ".join(non_mention_parts)
-                ctx = await bot.get_context(message)
-                await do_temp_ban(ctx, member, duration, reason)
-            else:
-                await message.channel.send("❌ لازم تمنشن العضو اللي تبي تبنّه! تأكد إنك تختاره من قائمة الاقتراحات لما تكتب @")
+            parts = [p for p in rest.split() if not p.startswith('<@')]
+            duration = None
+            reason = "بدون سبب"
+            if parts:
+                if parse_duration(parts[0]):
+                    duration = parts[0]
+                    reason = " ".join(parts[1:]) if len(parts) > 1 else "بدون سبب"
+                else:
+                    reason = " ".join(parts)
+            ctx = await bot.get_context(message)
+            await do_temp_ban(ctx, member, duration, reason)
             return
 
     await bot.process_commands(message)
