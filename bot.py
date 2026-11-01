@@ -314,10 +314,10 @@ async def do_timeout(ctx, member: discord.Member, duration: str, reason: str = "
 
         log_msg = (
             f"🔇 **تايم اوت جديد**\n"
-            f"👤 العضو: {member.mention} (`{member}`)\n"
+            f"👤 العضو: {member.mention} ('{member}')\n"
             f"⏱️ المدة: {duration[:-1]} {unit_label}\n"
             f"📝 السبب: {reason}\n"
-            f"🛡️ بواسطة: {ctx.author.mention} (`{ctx.author}`)\n"
+            f"🛡️ بواسطة: {ctx.author.mention} ('{ctx.author}')\n"
             f"🏠 السيرفر: {ctx.guild.name}"
         )
         await notify_owners(bot, log_msg)
@@ -344,10 +344,10 @@ async def do_temp_ban(ctx, member: discord.Member, duration: str = None, reason:
 
         log_msg = (
             f"🔨 **باند جديد**\n"
-            f"👤 العضو: {member} (`{member.id}`)\n"
+            f"👤 العضو: {member} ('{member.id}')\n"
             f"⏱️ المدة: {duration_label}\n"
             f"📝 السبب: {reason}\n"
-            f"🛡️ بواسطة: {ctx.author.mention} (`{ctx.author}`)\n"
+            f"🛡️ بواسطة: {ctx.author.mention} ('{ctx.author}')\n"
             f"🏠 السيرفر: {ctx.guild.name}"
         )
         await notify_owners(bot, log_msg)
@@ -375,12 +375,12 @@ async def do_unban(ctx, query: str):
                 user = entry.user
                 break
         if not user:
-            return await ctx.send(f"❌ ما لقيت يوزر بالاسم أو الـ ID: `{query}`")
+            return await ctx.send(f"❌ ما لقيت يوزر بالاسم أو الـ ID: '{query}'")
         await ctx.guild.unban(user, reason=f"فك البان بواسطة {ctx.author}")
         await ctx.send(f"✅ تم فك البان عن **{user}**")
         await notify_owners(bot,
             f"✅ **فك بان**\n"
-            f"👤 العضو: {user} (`{user.id}`)\n"
+            f"👤 العضو: {user} ('{user.id}')\n"
             f"🛡️ بواسطة: {ctx.author.mention}\n"
             f"🏠 السيرفر: {ctx.guild.name}"
         )
@@ -391,124 +391,13 @@ async def do_unban(ctx, query: str):
 
 async def do_untimeout(ctx, member: discord.Member, reason: str):
     if not has_administrator_permission(ctx.author):
-        return await ctx.send("❌ ما عندك صلاحية! (مخصصة للسترتر)")
+        return await ctx.send("❌ ما عندك صلاحية! (مخصصة للستريتر)")
     try:
         await member.timeout(None, reason=reason)
         await ctx.send(f"✅ تم شيل التايم اوت عن {member.mention} | السبب: {reason}")
 
         log_msg = (
             f"✅ **تم شيل التايم اوت**\n"
-            f"👤 العضو: {member.mention} (`{member}`)\n"
+            f"👤 العضو: {member.mention} ('{member}')\n"
             f"📝 السبب: {reason}\n"
-            f"🛡️ بواسطة: {ctx.author.mention} (`{ctx.author}`)\n"
-            f"🏠 السيرفر: {ctx.guild.name}"
-        )
-        await notify_owners(bot, log_msg)
-    except discord.Forbidden:
-        await ctx.send("❌ ما عندي صلاحية أشيل التايم اوت!")
-    except Exception as e:
-        await ctx.send(f"❌ خطأ: {e}")
-
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
-
-    content = message.content.strip()
-
-    if bot.user in message.mentions and not message.mention_everyone:
-        stripped = content
-        for mstr in (f"<@{bot.user.id}>", f"<@!{bot.user.id}>"):
-            stripped = stripped.replace(mstr, "").strip()
-        if not stripped:
-            await message.channel.send("هلا انا موجود")
-            return
-        if not AI_ENABLED:
-            await message.reply("الذكاء الاصطناعي متوقف حاليًا.", mention_author=False)
-            return
-        else:
-            async with message.channel.typing():
-                reply = await ask_ai(stripped)
-            await message.reply(reply, mention_author=False)
-            return
-
-    if content.startswith("شيل"):
-        rest = content[len("شيل"):].strip()
-        parts = rest.split()
-        if message.mentions:
-            member = message.mentions[0]
-            reason = " ".join(parts[1:]) if len(parts) > 1 else "بدون سبب"
-            ctx = await bot.get_context(message)
-            await do_untimeout(ctx, member, reason)
-            return
-
-    # تم ضبط شرط القفل بحيث ينفذ فقط إذا كانت الكلمة مطابقة تماماً أو تليها مسافة/منشن وليس جزءاً من كلمة مثل "قفل" داخل كلمة أخرى
-    if content == "قفل" or content == "ق" or content.startswith("قفل ") or content.startswith("ق "):
-        author_member = message.guild.get_member(message.author.id) or await message.guild.fetch_member(message.author.id)
-        is_allowed = (
-            message.author.id == OWNER_ID
-            or (author_member and author_member.guild_permissions.administrator)
-        )
-        if not is_allowed:
-            await message.channel.send("❌ ما عندك صلاحية قفل الروم (تتطلب ادمنستريتر)!")
-            return
-        target = message.channel_mentions[0] if message.channel_mentions else message.channel
-        overwrite = target.overwrites_for(message.guild.default_role)
-        overwrite.send_messages = False
-        try:
-            await target.set_permissions(message.guild.default_role, overwrite=overwrite)
-            await message.channel.send(f"🔒 تم قفل {target.mention}")
-        except discord.Forbidden:
-            await message.channel.send("❌ ما عندي صلاحية أقفل هذا الروم!")
-        except Exception as e:
-            await message.channel.send(f"❌ خطأ: {e}")
-        return
-
-    # تم ضبط شرط الفتح بدقة منعاً لتداخل الكلمات العادية
-    if content == "فتح" or content == "ف" or content.startswith("فتح ") or content.startswith("ف "):
-        author_member = message.guild.get_member(message.author.id) or await message.guild.fetch_member(message.author.id)
-        is_allowed = (
-            message.author.id == OWNER_ID
-            or (author_member and author_member.guild_permissions.administrator)
-        )
-        if not is_allowed:
-            await message.channel.send("❌ ما عندك صلاحية فتح الروم (تتطلب ادمنستريتر)!")
-            return
-        target = message.channel_mentions[0] if message.channel_mentions else message.channel
-        overwrite = target.overwrites_for(message.guild.default_role)
-        overwrite.send_messages = True
-        try:
-            await target.set_permissions(message.guild.default_role, overwrite=overwrite)
-            await message.channel.send(f"🔓 تم فتح {target.mention}")
-        except discord.Forbidden:
-            await message.channel.send("❌ ما عندي صلاحية أفتح هذا الروم!")
-        except Exception as e:
-            await message.channel.send(f"❌ خطأ: {e}")
-        return
-
-    if content.startswith("اعطي كل الرولات"):
-        if message.author.id != OWNER_ID and message.author.name not in CO_OWNERS:
-            await message.channel.send("❌ هذا الأمر لصاحب البوت ونائبه فقط!")
-            return
-        if not message.mentions:
-            await message.channel.send("❌ منشن العضو!")
-            return
-        member = message.mentions[0]
-        bot_member = message.guild.get_member(bot.user.id)
-        bot_top = bot_member.top_role.position if bot_member else 0
-        assignable = [
-            r for r in message.guild.roles
-            if r.position < bot_top
-            and not r.managed
-            and r.name != "@everyone"
-            and r not in member.roles
-        ]
-        if not assignable:
-            await message.channel.send(f"❌ ما في رولات ممكن أعطيها لـ {member.mention}")
-            return
-        try:
-            all_roles = list(set(member.roles + assignable))
-            await member.edit(roles=all_roles)
-            await message.channel.send(f"✅ تم إعطاء {member.mention} جميع الرولات ({len(assignable)} رول)")
-        except discord.Forbidden:
-            await message.channel.send("❌ ما
+            f"🛡️
