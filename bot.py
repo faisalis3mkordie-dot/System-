@@ -11,7 +11,7 @@ import time
 from datetime import timedelta
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-AI_ENABLED = False
+AI_ENABLED = True
 
 FREE_AI_MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
